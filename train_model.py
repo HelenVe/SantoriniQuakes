@@ -1,4 +1,6 @@
 import os
+
+import joblib
 import numpy as np
 import pandas as pd
 import torch
@@ -16,12 +18,14 @@ df = pd.read_csv(r'C:\Users\eleni\PycharmProjects\Seismos-Santorini\Data\catalog
 df['Time'] = pd.to_datetime(df['Time'])
 
 df_resampled = df.set_index('Time')
-mean_magnitudes_15min = df_resampled['Magnitude'].resample('15min').mean().ffill()# forward fill
-print(mean_magnitudes_15min.head())
+mean_magnitudes_15min = df_resampled['Magnitude'].resample('15min').mean().ffill()# forward fills
 mean_magnitudes_filled = mean_magnitudes_15min.rolling(window=4, min_periods=1).mean().fillna(0) # take last 4 measurements
 
 data = np.array(mean_magnitudes_filled).reshape(-1, 1)
-data = MinMaxScaler().fit_transform(data)
+scaler = MinMaxScaler()
+data = scaler.fit_transform(data)
+joblib.dump(scaler, 'minmax_scaler.pkl')
+print("Scaler saved to minmax_scaler.pkl")
 
 look_back_steps = 24  # 6 hours of historical data (24 * 15min)
 forecast_horizon = 4  # Predict next 1 hour (4 * 15min)
@@ -50,6 +54,11 @@ y_train = torch.from_numpy(y_train).float()
 X_test = torch.from_numpy(X_test).float()
 y_test = torch.from_numpy(y_test).float()
 
+torch.save(X_train, r'C:\Users\eleni\PycharmProjects\Seismos-Santorini\Data\X_train.pt')
+torch.save(y_train, r'C:\Users\eleni\PycharmProjects\Seismos-Santorini\Data\y_train.pt')
+torch.save(X_test, r'C:\Users\eleni\PycharmProjects\Seismos-Santorini\Data\_test.pt')
+torch.save(y_test, r'C:\Users\eleni\PycharmProjects\Seismos-Santorini\Data\y_test.pt')
+
 batch_size = 32
 train_dataset = TensorDataset(X_train, y_train)
 train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
@@ -73,7 +82,7 @@ print(f"\nModel architecture:\n{model}")
 total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
 print(f"Total trainable parameters: {total_params}")
 
-num_epochs = 70
+num_epochs = 30
 print(f"\nTraining the model on {device}...")
 train_losses = []
 val_losses = []
