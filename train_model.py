@@ -1,22 +1,21 @@
 import os
-
 import joblib
 import numpy as np
 import pandas as pd
 import torch
 from matplotlib import pyplot as plt
+from config import input_size, hidden_size, num_layers, output_size, look_back_steps, forecast_horizon
+
 from model import Seq2SeqAutoencoder
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import TensorDataset, DataLoader
 from sklearn.preprocessing import MinMaxScaler
-from sklearn.metrics import mean_squared_error, mean_absolute_error
-from sklearn.model_selection import train_test_split
 
+current_directory = os.path.dirname(os.getcwd())
 
-df = pd.read_csv(r'C:\Users\eleni\PycharmProjects\Seismos-Santorini\Data\catalogue.csv')
+df = pd.read_csv(os.path.join(current_directory, 'Data\catalogue.csv'))
 df['Time'] = pd.to_datetime(df['Time'])
-
 df_resampled = df.set_index('Time')
 mean_magnitudes_15min = df_resampled['Magnitude'].resample('15min').mean().ffill()# forward fills
 mean_magnitudes_filled = mean_magnitudes_15min.rolling(window=4, min_periods=1).mean().fillna(0) # take last 4 measurements
@@ -25,11 +24,6 @@ data = np.array(mean_magnitudes_filled).reshape(-1, 1)
 scaler = MinMaxScaler()
 data = scaler.fit_transform(data)
 joblib.dump(scaler, 'minmax_scaler.pkl')
-print("Scaler saved to minmax_scaler.pkl")
-
-look_back_steps = 24  # 6 hours of historical data (24 * 15min)
-forecast_horizon = 4  # Predict next 1 hour (4 * 15min)
-
 
 def create_sequences(data, look_back_steps, forecast_horizon):
     X, y = [], []
@@ -54,10 +48,10 @@ y_train = torch.from_numpy(y_train).float()
 X_test = torch.from_numpy(X_test).float()
 y_test = torch.from_numpy(y_test).float()
 
-torch.save(X_train, r'C:\Users\eleni\PycharmProjects\Seismos-Santorini\Data\X_train.pt')
-torch.save(y_train, r'C:\Users\eleni\PycharmProjects\Seismos-Santorini\Data\y_train.pt')
-torch.save(X_test, r'C:\Users\eleni\PycharmProjects\Seismos-Santorini\Data\_test.pt')
-torch.save(y_test, r'C:\Users\eleni\PycharmProjects\Seismos-Santorini\Data\y_test.pt')
+torch.save(X_train, os.path.join(current_directory, 'Data\X_train.pt'))
+torch.save(y_train, os.path.join(current_directory, 'Data\y_train.pt'))
+torch.save(X_test, os.path.join(current_directory, 'Data\X_test.pt'))
+torch.save(y_test, os.path.join(current_directory, 'Data\y_test.pt'))
 
 batch_size = 32
 train_dataset = TensorDataset(X_train, y_train)
@@ -67,12 +61,6 @@ test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"\nUsing device: {device}")
-
-# Model Hyperparameters
-input_size = 1 # Magnitude is the only feature
-hidden_size = 100
-num_layers = 1 # Number of LSTM layers
-output_size = 1 # Predicting a single magnitude value for each future timestep
 
 model = Seq2SeqAutoencoder(input_size, hidden_size, num_layers, output_size, look_back_steps, forecast_horizon).to(device)
 model_save_path = os.path.join(os.getcwd(), 'model.pt')
@@ -137,5 +125,5 @@ plt.legend()
 plt.grid(True)
 plt.show()
 
-os.makedirs(r'C:\Users\eleni\PycharmProjects\Seismos-Santorini\Data\TrainingPlots', exist_ok=True)
-plt.savefig(r'C:\Users\eleni\PycharmProjects\Seismos-Santorini\Data\TrainingPlots\train_loss.png')
+os.makedirs(os.path.join(current_directory, 'Data\TrainingPlots'), exist_ok=True)
+plt.savefig(os.path.join(current_directory, r'Data\TrainingPlots\train_loss.png'))
